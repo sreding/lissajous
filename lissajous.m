@@ -15,9 +15,10 @@ rng(4281529)
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw);
 
+
 %% Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw)
-    sample_arrays = LHS_sampling(m, 5, m);
+    sample_arrays = lhsdesign(5,m);
     t = linspace(-pi, pi, m);
 
     a = sample_arrays(1,:);
@@ -32,14 +33,6 @@ function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, 
     yaw = standardize_to_vals(sin(c.*t+phi), min_yaw, max_yaw);
 end
 
-function x = LHS_sampling(N, dims, max_val)
-    a = linspace(1,max_val, N*dims);
-    a = a(randperm(length(a)));
-    
-    x = reshape(a, dims,[]);
-    
-end
-
 function x = standardize_to_vals(x, min_val, max_val)
     x = x - min(x);
     x = x * (1/max(x));
@@ -47,9 +40,3 @@ function x = standardize_to_vals(x, min_val, max_val)
     x = x + min_val;
     
 end 
-
-
-
-
-
-
