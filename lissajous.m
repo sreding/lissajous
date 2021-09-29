@@ -16,26 +16,21 @@ max_yaw = 5;
 % Sum between points:
 max_dist = 1;
 
-rng(428341);
+rng(4283333);
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range);
+
 [roll, pitch, yaw] = interpolate_trajectory(roll, pitch, yaw, m);
+[roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw);
+scatter3(roll, pitch, yaw);
 difference = summed_differences(roll, pitch, yaw);
 fprintf('Max difference between points: %f\n', max(difference))
 fprintf('Min difference between points: %f\n', min(difference))
 
 
 scatter3(roll, pitch, yaw);
+output_as_robot_csv(roll, pitch,yaw)
 
-pitch=90-pitch; roll=90-roll;
-
-spacer=zeros(m,1);
-x_pos=zeros(m,1)-50.000000;
-y_pos=zeros(m,1)-1218.223000; 
-z_pos=zeros(m,1)+242.834000;
-
-output=[spacer x_pos y_pos z_pos pitch yaw roll];
-writematrix(output,'attitude_inputs_lissajous.csv')
 
 %% Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range)
@@ -54,8 +49,8 @@ function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, 
     delta = pi./sample_arrays(:,4);
     phi = pi./sample_arrays(:,5);
     
-    n = sample_arrays(:,6)*5 +5;
-    m1 = sample_arrays(:,7)*5 +5;
+    n = sample_arrays(:,6)*5+5;
+    m1 = sample_arrays(:,7)*5+5;
     
     roll = normalize_to_vals(a.*sin(round(min([n,m1]))*t + delta), min_roll, max_roll);
     pitch = normalize_to_vals(b.*sin(round(max([n,m1]))*t), min_pitch, max_pitch);
@@ -80,4 +75,37 @@ end
 
 function [sum_differece] = summed_differences(roll, pitch, yaw)
     sum_differece = abs(diff(roll))+ abs(diff(pitch))+abs(diff(yaw));
+end
+
+function[] = output_as_robot_csv(roll, pitch, yaw)
+    pitch=90-pitch; roll=90-roll;
+    m = size(roll);
+    
+    spacer=zeros(m);
+    x_pos=zeros(m)-50.000000;
+    y_pos=zeros(m)-1218.223000; 
+    z_pos=zeros(m)+242.834000;
+
+    output=[spacer x_pos y_pos z_pos pitch yaw roll];
+    filename = strcat('attitude_inputs_lissajous_',string(round(rand*1000)),'.csv');
+    writematrix(output,filename)
+end
+
+function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw)
+    % (for closed loops: connect points to the starting point (zero))
+   distance_to_zero = sqrt(pitch.^2+roll.^2+yaw.^2);
+   [~, idx] = min(distance_to_zero);
+   
+   pitch = [pitch(idx:size(pitch)); pitch(1:idx-1)];
+   roll = [roll(idx:size(roll)); roll(1:idx-1)];
+   yaw = [yaw(idx:size(yaw)); yaw(1:idx-1)];
+   
+   pitch_to_zero = transpose(linspace(0, pitch(1)));
+   roll_to_zero = transpose(linspace(0, roll(1)));
+   yaw_to_zero = transpose(linspace(0, yaw(1)));
+   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_trajectory(transpose(linspace(0, pitch(1))),transpose(linspace(0, roll(1))),transpose(linspace(0, yaw(1))),20);
+   pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
+   roll = [roll_to_zero; roll; flip(roll_to_zero)];
+   
+   yaw = [yaw_to_zero; yaw; flip(yaw_to_zero)];
 end
