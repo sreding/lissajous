@@ -1,7 +1,7 @@
 clear all
 %% Parameter Definition
 % Number of points per trajectory:
-m = 2500;
+m = 300;
 % in range [-pi*m_range, pi*m_range]
 m_range = 1;
 
@@ -14,19 +14,22 @@ min_yaw = -5;
 max_yaw = 5;
 
 % Sum between points:
-max_dist = 1;
+max_dist = 0.5;
 
-rng(4283333);
+rng(423285);
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range);
 
-[roll, pitch, yaw] = interpolate_trajectory(roll, pitch, yaw, m);
-[roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw);
+[roll, pitch, yaw] = interpolate_until_small(roll, pitch, yaw, max_dist);
+
+difference = summed_differences(roll, pitch, yaw);
+fprintf('Max distance between points: %f\n', max(difference))
+fprintf('Min distance between points: %f\n', min(difference))
+
+[roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw, max_dist);
 scatter3(roll, pitch, yaw);
 difference = summed_differences(roll, pitch, yaw);
-fprintf('Max difference between points: %f\n', max(difference))
-fprintf('Min difference between points: %f\n', min(difference))
-
+fprintf('Max distance between points: %f\n', max(difference))
 
 scatter3(roll, pitch, yaw);
 output_as_robot_csv(roll, pitch,yaw)
@@ -91,7 +94,7 @@ function[] = output_as_robot_csv(roll, pitch, yaw)
     writematrix(output,filename)
 end
 
-function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw)
+function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw, max_dist)
     % (for closed loops: connect points to the starting point (zero))
    distance_to_zero = sqrt(pitch.^2+roll.^2+yaw.^2);
    [~, idx] = min(distance_to_zero);
@@ -100,12 +103,22 @@ function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw)
    roll = [roll(idx:size(roll)); roll(1:idx-1)];
    yaw = [yaw(idx:size(yaw)); yaw(1:idx-1)];
    
-   pitch_to_zero = transpose(linspace(0, pitch(1)));
-   roll_to_zero = transpose(linspace(0, roll(1)));
-   yaw_to_zero = transpose(linspace(0, yaw(1)));
-   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_trajectory(transpose(linspace(0, pitch(1))),transpose(linspace(0, roll(1))),transpose(linspace(0, yaw(1))),20);
-   pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
-   roll = [roll_to_zero; roll; flip(roll_to_zero)];
+   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_until_small(transpose(linspace(0, pitch(1))),transpose(linspace(0, roll(1))),transpose(linspace(0, yaw(1))),max_dist);
    
+   pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
+   roll = [roll_to_zero; roll; flip(roll_to_zero)];  
    yaw = [yaw_to_zero; yaw; flip(yaw_to_zero)];
+end
+
+function[pitch,roll,yaw]= interpolate_until_small(pitch, roll, yaw, max_dist)
+    m = size(pitch, 1);
+    max_dist_measured = max(summed_differences(pitch, roll, yaw));
+    
+    while max_dist_measured >= max_dist
+        m = m * (max(summed_differences(pitch, roll, yaw))/max_dist);
+       [pitch, roll, yaw] = interpolate_trajectory(roll, pitch, yaw, m);
+        max_dist_measured = max(summed_differences(roll, pitch, yaw));
+    end
+    min_dist_measured = min(summed_differences(pitch, roll, yaw));
+
 end
