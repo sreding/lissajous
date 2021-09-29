@@ -16,7 +16,7 @@ max_yaw = 5;
 % Sum between points:
 max_dist = 0.5;
 
-rng(423285);
+rng(48545);
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range);
 
@@ -29,7 +29,7 @@ fprintf('Min distance between points: %f\n', min(difference))
 [roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw, max_dist);
 scatter3(roll, pitch, yaw);
 difference = summed_differences(roll, pitch, yaw);
-fprintf('Max distance between points: %f\n', max(difference))
+fprintf('Max distance between points (with trajectory to 0): %f\n', max(difference))
 
 scatter3(roll, pitch, yaw);
 output_as_robot_csv(roll, pitch,yaw)
@@ -103,7 +103,7 @@ function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw, max_dist)
    roll = [roll(idx:size(roll)); roll(1:idx-1)];
    yaw = [yaw(idx:size(yaw)); yaw(1:idx-1)];
    
-   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_until_small(transpose(linspace(0, pitch(1))),transpose(linspace(0, roll(1))),transpose(linspace(0, yaw(1))),max_dist);
+   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_until_small(transpose(linspace(0, pitch(1),10)),transpose(linspace(0, roll(1),10)),transpose(linspace(0, yaw(1),10)),max_dist);
    
    pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
    roll = [roll_to_zero; roll; flip(roll_to_zero)];  
