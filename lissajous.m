@@ -15,8 +15,9 @@ max_yaw = 5;
 
 % Sum between points:
 max_dist = 0.5;
+max_fixed_waypoints = 500;
 
-rng(48545);
+rng(48548795);
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range);
 
@@ -27,14 +28,36 @@ fprintf('Max distance between points: %f\n', max(difference))
 fprintf('Min distance between points: %f\n', min(difference))
 
 [roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw, max_dist);
-scatter3(roll, pitch, yaw);
+fprintf('Final max distance between points (with trajectory to 0): %f\n', max(difference))
+
+stride = ceil(size(roll)/max_fixed_waypoints);
+
+strided_roll = roll;
+strided_pitch = pitch;
+strided_yaw = yaw;
+
+idx = setdiff(1:size(roll),1:stride:size(roll));
+strided_roll(idx) = 0;
+strided_pitch(idx) = 0;
+strided_yaw(idx) = 0;
+
+fprintf('Number of elements in second trajectory: %f\n', nnz(strided_roll))
+
+figure(1)
+scatter3(roll, pitch, yaw, 'b', 'filled')
+hold on
+scatter3(strided_roll, strided_pitch, strided_yaw, 'g', 'filled')
+hold off
+grid on
+legend('Normal', 'Subsampled')
+
 difference = summed_differences(roll, pitch, yaw);
-fprintf('Max distance between points (with trajectory to 0): %f\n', max(difference))
-
-scatter3(roll, pitch, yaw);
-output_as_robot_csv(roll, pitch,yaw)
-
-
+id = string(round(rand*1000));
+filename = strcat('attitude_inputs_lissajous_',id,'.csv');
+output_as_robot_csv(roll, pitch, yaw, filename);
+filename = strcat('attitude_inputs_lissajous_',id,'_subsampled.csv');
+output_as_robot_csv(roll, pitch, yaw, filename)
+fprintf('Saved with file id: '+id+'\n')
 %% Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range)
     sample_arrays = lhsdesign(1, 7);
@@ -80,7 +103,7 @@ function [sum_differece] = summed_differences(roll, pitch, yaw)
     sum_differece = abs(diff(roll))+ abs(diff(pitch))+abs(diff(yaw));
 end
 
-function[] = output_as_robot_csv(roll, pitch, yaw)
+function[] = output_as_robot_csv(roll, pitch, yaw, filename)
     pitch=90-pitch; roll=90-roll;
     m = size(roll);
     
@@ -90,7 +113,8 @@ function[] = output_as_robot_csv(roll, pitch, yaw)
     z_pos=zeros(m)+242.834000;
 
     output=[spacer x_pos y_pos z_pos pitch yaw roll];
-    filename = strcat('attitude_inputs_lissajous_',string(round(rand*1000)),'.csv');
+  
+  
     writematrix(output,filename)
 end
 
