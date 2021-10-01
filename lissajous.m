@@ -56,7 +56,7 @@ id = string(round(rand*1000));
 filename = strcat('attitude_inputs_lissajous_',id,'.csv');
 output_as_robot_csv(roll, pitch, yaw, filename);
 filename = strcat('attitude_inputs_lissajous_',id,'_subsampled.csv');
-output_as_robot_csv(roll, pitch, yaw, filename)
+output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, filename)
 fprintf('Saved with file id: '+id+'\n')
 %% Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range)
