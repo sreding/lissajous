@@ -43,8 +43,7 @@ random_walk = random_walk + 50;
 linear_increase = linspace(0,random_walk(1),n_linear_points/2);
 
 linear_decrease = linspace(random_walk(end),0,n_linear_points/2);
-size(linear_increase)
-size(random_walk)
+
 random_walk = [linear_increase,random_walk,linear_decrease];
 figure(1)
 plot(random_walk)
@@ -74,7 +73,7 @@ id = string(round(rand*1000));
 filename = strcat('attitude_inputs_lissajous_',id,'.csv');
 output_as_robot_csv(roll, pitch, yaw, filename);
 filename = strcat('attitude_inputs_lissajous_',id,'_subsampled.csv');
-output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, filename)
+output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, filename);
 writematrix(random_walk',strcat('wind_'+id+'.csv'));
 fprintf('Saved with file id: '+id+'\n')
 
