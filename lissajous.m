@@ -17,7 +17,7 @@ max_yaw = 5;
 max_dist = 0.5;
 max_fixed_waypoints = 500;
 
-rng(48548795);
+rng(485485);
 
 [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range);
 
@@ -27,9 +27,27 @@ difference = summed_differences(roll, pitch, yaw);
 fprintf('Max distance between points: %f\n', max(difference))
 fprintf('Min distance between points: %f\n', min(difference))
 
+n_nonlinear_points = size(roll,1);
+
 [roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw, max_dist);
 fprintf('Final max distance between points (with trajectory to 0): %f\n', max(difference))
 
+n_linear_points = size(roll,1)-n_nonlinear_points;
+
+
+random_walk = cumsum(randn(1,n_nonlinear_points));
+random_walk = random_walk - min(random_walk);
+random_walk = random_walk/max(random_walk)*50;
+random_walk = random_walk + 50;
+
+linear_increase = linspace(0,random_walk(1),n_linear_points/2);
+
+linear_decrease = linspace(random_walk(end),0,n_linear_points/2);
+size(linear_increase)
+size(random_walk)
+random_walk = [linear_increase,random_walk,linear_decrease];
+figure(1)
+plot(random_walk)
 stride = ceil(size(roll)/max_fixed_waypoints);
 
 strided_roll = roll;
@@ -43,7 +61,7 @@ strided_yaw(idx) = 0;
 
 fprintf('Number of elements in second trajectory: %f\n', nnz(strided_roll))
 
-figure(1)
+figure(2)
 scatter3(roll, pitch, yaw, 'b', 'filled')
 hold on
 scatter3(strided_roll, strided_pitch, strided_yaw, 'g', 'filled')
@@ -57,7 +75,10 @@ filename = strcat('attitude_inputs_lissajous_',id,'.csv');
 output_as_robot_csv(roll, pitch, yaw, filename);
 filename = strcat('attitude_inputs_lissajous_',id,'_subsampled.csv');
 output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, filename)
+writematrix(random_walk',strcat('wind_'+id+'.csv'));
 fprintf('Saved with file id: '+id+'\n')
+
+
 %% Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range)
     sample_arrays = lhsdesign(1, 7);
