@@ -22,7 +22,7 @@ class BaseGenerator:
         self.z = ax_3
 
         np.random.seed(self.seed)
-        self.sampler = LatinHypercube(d=5, seed=self.seed)
+        self.sampler = LatinHypercube(d=7, seed=self.seed)
 
         self.sequence_len = sequence_len
 
@@ -31,23 +31,31 @@ class BaseGenerator:
 
     def next_numbers(self):
         seq_len = len(self.LHS_Sequence)
-        if len(seq_len) <= self.idx:
+        if seq_len <= self.idx:
             self.LHS_Sequence = self.sampler.random(len(seq_len))
 
-        a = self.LHS_Sequence[self.idx % seq_len, 0]
-        b = self.LHS_Sequence[self.idx % seq_len, 1]
-        c = self.LHS_Sequence[self.idx % seq_len, 2]
+        # Adjust scaling to highest range
+        angle_range = [self.max_x - self.min_x, self.max_y - self.min_y, self.max_z - self.min_z]
+        max_deg = max(angle_range)
+
+
+        a = self.LHS_Sequence[self.idx % seq_len, 0]*angle_range[0]/max_deg
+        b = self.LHS_Sequence[self.idx % seq_len, 1]*angle_range[1]/max_deg
+        c = self.LHS_Sequence[self.idx % seq_len, 2]*angle_range[2]/max_deg
 
         delta = np.pi / self.LHS_Sequence[self.idx % seq_len, 3]
         phi = np.pi / self.LHS_Sequence[self.idx % seq_len, 4]
+
+        n = min(self.LHS_Sequence[self.idx % seq_len, 5],self.LHS_Sequence[self.idx % seq_len, 6])*10+3
+        m = max(self.LHS_Sequence[self.idx % seq_len, 5], self.LHS_Sequence[self.idx % seq_len, 6])*10+3
         self.idx += 1
 
-        return a, b, c, delta, phi
+        return a, b, c, delta, phi, int(n), int(m)
 
     def generate_next(self, sequence_len=None, save_as=''):
         raise NotImplementedError
 
-    def normalize_to_vals(x, min_val=-20, max_val=20):
+    def normalize_to_vals(self,x, min_val=-20, max_val=20):
         x -= x.min()
         x /= x.max()
         x *= max_val - min_val
@@ -64,11 +72,12 @@ class DynamicTrajectory(BaseGenerator):
         if sequence_len is None:
             sequence_len = self.sequence_len
 
-        a, b, c, delta, phi = self.next_numbers()
+        a, b, c, delta, phi, n, m = self.next_numbers()
         t = np.linspace(-np.pi, np.pi, sequence_len)
-        x = self.normalize_to_vals(np.sin(a * t + delta), self.min_x, self.max_x)
-        y = self.normalize_to_vals(np.sin(b * t), self.min_y, self.max_y)
-        z = self.normalize_to_vals(np.sin(c * t + phi), self.min_z, self.max_z)
+
+        x = self.normalize_to_vals(a*np.sin(n * t + delta), self.min_x, self.max_x)
+        y = self.normalize_to_vals(b*np.sin(m * t), self.min_y, self.max_y)
+        z = self.normalize_to_vals(c*np.sin(t + phi), self.min_z, self.max_z)
 
         xyz_as_table = np.concatenate((np.expand_dims(x, 1), np.expand_dims(y, 1), np.expand_dims(z, 1)),
                                       axis=1)
