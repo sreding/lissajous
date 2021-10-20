@@ -6,7 +6,7 @@ from scipy.stats.qmc import LatinHypercube
 
 class BaseGenerator:
     def __init__(self, min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
-                 seed=263481, sequence_len=1000, LHS_sequence_length = 1000):
+                 seed=263481, sequence_len=1000, LHS_sequence_length = 1000, d=7):
         self.seed = seed
         self.min_x = min_ax_1
         self.max_x = max_ax_1
@@ -20,7 +20,11 @@ class BaseGenerator:
         self.z = ax_3
 
         np.random.seed(self.seed)
-        self.sampler = LatinHypercube(d=7, seed=self.seed)
+        if d < 7:
+            self.static = True
+        else:
+            self.static = False
+        self.sampler = LatinHypercube(d, seed=self.seed)
 
         self.sequence_len = sequence_len
 
@@ -30,7 +34,7 @@ class BaseGenerator:
     def next_numbers(self):
         seq_len = len(self.LHS_Sequence)
         if seq_len <= self.idx:
-            self.LHS_Sequence = self.sampler.random(len(seq_len))
+            self.LHS_Sequence = self.sampler.random(seq_len)
 
         # Adjust scaling to highest range
         angle_range = [self.max_x - self.min_x, self.max_y - self.min_y, self.max_z - self.min_z]
@@ -40,6 +44,10 @@ class BaseGenerator:
         a = self.LHS_Sequence[self.idx % seq_len, 0]*angle_range[0]/max_deg
         b = self.LHS_Sequence[self.idx % seq_len, 1]*angle_range[1]/max_deg
         c = self.LHS_Sequence[self.idx % seq_len, 2]*angle_range[2]/max_deg
+
+        if self.static:
+            self.idx += 1
+            return a, b, c
 
         delta = np.pi / self.LHS_Sequence[self.idx % seq_len, 3]
         phi = np.pi / self.LHS_Sequence[self.idx % seq_len, 4]
@@ -99,6 +107,44 @@ class DynamicTrajectory(BaseGenerator):
             np.savetxt(save_as+'_' + str(self.idx) + '.csv', xyz_as_table, delimiter=',')
 
         return xyz_as_table
+
+
+class StaticTrajectory(BaseGenerator):
+    def __init__(self, min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
+                 seed=263481, sequence_len=1000, LHS_sequence_length=100):
+        super(StaticTrajectory, self).__init__(min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1, ax_2,
+                                                ax_3,
+                                                seed=seed, sequence_len=sequence_len,
+                                                LHS_sequence_length=LHS_sequence_length, d=3)
+
+    def generate_next(self, sequence_len=None, save_as=''):
+        if sequence_len is None:
+            sequence_len = self.sequence_len
+
+        x, y, z = [],[],[]
+
+        for _ in range(sequence_len):
+            a, b, c = self.next_numbers()
+
+            x.append(a)
+            y.append(b)
+            z.append(c)
+
+        x = np.asarray(x)
+        y = np.asarray(y)
+        z = np.asarray(z)
+
+        x = self.normalize_to_vals(x, self.min_x, self.max_x)
+        y = self.normalize_to_vals(y, self.min_y, self.max_y)
+        z = self.normalize_to_vals(z, self.min_z, self.max_z)
+
+        xyz_as_table = np.concatenate((np.expand_dims(x, 1), np.expand_dims(y, 1), np.expand_dims(z, 1)),
+                                      axis=1)
+        if save_as != '':
+            np.savetxt(save_as+'_' + str(self.idx) + '.csv', xyz_as_table, delimiter=',')
+
+        return xyz_as_table
+
 
 
 
