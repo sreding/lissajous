@@ -1,0 +1,4 @@
+name: lsj
+channels:
+  - defaults
+prefix: /home/simon/anaconda3/envs/lsj
