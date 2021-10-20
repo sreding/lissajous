@@ -1,7 +1,5 @@
 import numpy as np
-
 from scipy.stats.qmc import LatinHypercube
-import math
 
 
 
@@ -64,9 +62,25 @@ class BaseGenerator:
 
 class DynamicTrajectory(BaseGenerator):
     def __init__(self, min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
-                 seed=263481, sequence_len=1000, LHS_sequence_length=1000):
-        super(DynamicTrajectory, self).__init__(min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
+                 seed=263481, sequence_len=1000, LHS_sequence_length=100):
+        """
+        Generate dynamic trajectories.
+        :param min_ax_1: minimum value on the first axis
+        :param max_ax_1: maximum value on the first axis
+        :param min_ax_2: '' second axis
+        :param max_ax_2: '' second axis
+        :param min_ax_3: '' third axis
+        :param max_ax_3: '' third axis
+        :param ax_1: name attributed to first axis, e.g. pitch
+        :param ax_2: name attributed to second axis, e.g. roll
+        :param ax_3: name attributed to third axis, e.g. yaw
+        :param seed: Seed to call numpy and scipy randomness generation
+        :param sequence_len: # of point in the trajectory
+        :param LHS_sequence_length: # of LHS samples generated at once. Reduce if space requirements are tight or only few curves are generated.
+        """
+        super(DynamicTrajectory, self).__init__(min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1, ax_2, ax_3,
                                                   seed=seed,sequence_len=sequence_len, LHS_sequence_length=LHS_sequence_length)
+
 
     def generate_next(self, sequence_len=None, save_as=''):
         if sequence_len is None:
