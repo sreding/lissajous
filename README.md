@@ -6,7 +6,8 @@ Basic angle generation in Matlab and Python using 3D Lisssajous figures. Include
 
 ## Matlab
 All the matlab code is contained in a single file, `lissajous.m`. The code is currently set up to generate angles for a drone experiment.
-
+#### Note on static trajectories:
+They are sill under development and should not be used currently.
 ## Python
 Python code is in `src/generator.py`. Scipy is required for LHS sampling and numpy provides the basic data structures.
 Matplotlib is required only for visualization in the notebook. To install everything in a new conda environment, run
