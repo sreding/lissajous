@@ -19,14 +19,15 @@ max_fixed_waypoints = 50;
 SEED = 43632;
 
 % Number of trajectories to be generated
-num_of_trajectories = 20;
+num_of_trajectories = 10;
 
 
 
 %generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-%generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+
+generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 %generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-generate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+%enerate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
 function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
@@ -67,16 +68,23 @@ function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, m
             strided_roll = [strided_roll; new_r;ones(remain_static_for,1)*arrays(i+1,1)];
 
             new_p(2:length(new_p)-1) = 0; 
-            strided_pitch = [strided_pitch; new_p;ones(remain_static_for,1)*arrays(i+1,2)]
+            strided_pitch = [strided_pitch; new_p;ones(remain_static_for,1)*arrays(i+1,2)];
 
             new_y(2:length(new_y)-1) = 0; 
             strided_yaw = [strided_yaw; new_y; ones(remain_static_for,1)*arrays(i+1,3)];
-            new_walk = create_random_walk(remain_static_for, 10, i*40 + 50);
 
+
+            windrange = min(remain_static_for, 20);
             if isempty(wind)
                 firstelem = 0;
+                new_walk = create_random_walk(remain_static_for, 10, 50);
+
             else
                 firstelem = wind(end);
+                % increase or decrease start of new walk by at least 10%, cap at 50 and 90
+                start = max(min(wind(end) + (5*(arrays(i,4)-0.5)),100-windrange),50);
+                sum(arrays(:,4)-0.5)
+                new_walk = create_random_walk(remain_static_for, windrange, start);
             end
 
             connect = linspace(firstelem,new_walk(1),length(new_p));
@@ -89,7 +97,7 @@ function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, m
         fprintf('Number of elements in second trajectory: %f\n', nnz(strided_roll))
 
         figure(1)
-        plot(random_walk)
+        plot(wind)
 
         figure(2)
         scatter3(roll, pitch, yaw, 'b', 'filled')
@@ -104,7 +112,7 @@ function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, m
         output_as_robot_csv(roll, pitch, yaw, fullfile(folder_name,filename));
         filename = strcat('attitude_inputs_lissajous_',string(i),'_',id,'_subsampled.csv');
         output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, fullfile(folder_name,filename));
-        %writematrix(random_walk',fullfile(folder_name, strcat('wind_',string(i),'_',id,'.csv')));
+        writematrix(wind,fullfile(folder_name, strcat('wind_',string(i),'_',id,'.csv')));
         fprintf('Saved with file id: '+id+'\n')
     end
 end
@@ -398,8 +406,6 @@ function [random_walk] = create_random_walk_zero(n_linear_points, n_nonlinear_po
 end
 
 function [random_walk] = create_random_walk(n_nonlinear_points, range, minimum)
-    %w = [0.1, 0.2,0.4,0.6,1,0.6,0.4,0.2,0.1];
-    %random_walk = conv(cumsum(randn(1,n_nonlinear_points)), w, 'same');
     random_walk = smoothdata(cumsum(randn(1,n_nonlinear_points)));
 
     random_walk = random_walk - min(random_walk);
