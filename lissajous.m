@@ -23,9 +23,9 @@ num_of_trajectories = 20;
 
 
 
-generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+%generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+%generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+%generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 generate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
 function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
@@ -36,45 +36,60 @@ function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, m
            mkdir(folder_name)
     end
 
-    remain_static_for = 50
+    remain_static_for = 50;
 
     for i=1:num_of_trajectories
-        arrays = lhsdesign(max_fixed_waypoints,3);
+        arrays = lhsdesign(max_fixed_waypoints,7);
 
    
         arrays(:,1) = normalize_to_vals(arrays(:,1), min_roll, max_roll);
         arrays(:,2) = normalize_to_vals(arrays(:,2), min_pitch, max_pitch);
         arrays(:,3) = normalize_to_vals(arrays(:,3), min_yaw, max_yaw);
 
-        arrays = [zeros(1,3);arrays;zeros(1,3)];
+        arrays = [zeros(1,7);arrays;zeros(1,7)];
 
-        pitch = [];
-        roll = [];
-        yaw = [];
-        strided_pitch = [];
-        strided_roll = [];
-        strided_yaw = [];
+        pitch = zeros(0,1);
+        roll = zeros(0,1);
+        yaw = zeros(0,1);
+        strided_pitch = zeros(0,1);
+        strided_roll = zeros(0,1);
+        strided_yaw = zeros(0,1);
 
-
+        wind = zeros(0,1);
         for i=1:max_fixed_waypoints-1
-            [new_r, new_p, new_y] = connect_x_to_y(arrays(i,:),arrays(i+1,:),max_dist);
-            roll = [roll; new_r; ones(1,remain_static_for*new_r(length(new_r)))];
-            pitch = [pitch; new_p; ones(1,remain_static_for*new_r(length(new_r)))];
-            yaw = [yaw; new_y; ones(1,remain_static_for*new_r(length(new_r)))];
-            
-            new_p(2:length(new_p)-1) = 0; 
-            strided_pitch = [strided_pitch; new_p];
+            [new_r, new_p, new_y] = connect_x_to_y(arrays(i,:), arrays(i+1,:), max_dist);
 
-            new_r(2:length(new_r)-1) = 0; 
-            strided_roll = [strided_roll; new_r];
+            roll = [roll; new_r; ones(remain_static_for,1)*arrays(i+1,1)];
+            pitch = [pitch; new_p; ones(remain_static_for,1)*arrays(i+1,2)];
+            yaw = [yaw; new_y; ones(remain_static_for,1)*arrays(i+1,3)];
+
+            new_r(2:length(new_r)-1) = 0;
+            strided_roll = [strided_roll; new_r;ones(remain_static_for,1)*arrays(i+1,1)];
+
+            new_p(2:length(new_p)-1) = 0; 
+            strided_pitch = [strided_pitch; new_p;ones(remain_static_for,1)*arrays(i+1,2)]
 
             new_y(2:length(new_y)-1) = 0; 
-            strided_yaw = [strided_yaw; new_y];
+            strided_yaw = [strided_yaw; new_y; ones(remain_static_for,1)*arrays(i+1,3)];
+            new_walk = create_random_walk(remain_static_for, 10, i*40 + 50);
+
+            if isempty(wind)
+                firstelem = 0;
+            else
+                firstelem = wind(end);
+            end
+
+            connect = linspace(firstelem,new_walk(1),length(new_p));
+
+            wind = [wind; connect';new_walk'];
         end
         
-
+    
 
         fprintf('Number of elements in second trajectory: %f\n', nnz(strided_roll))
+
+        figure(1)
+        plot(random_walk)
 
         figure(2)
         scatter3(roll, pitch, yaw, 'b', 'filled')
@@ -101,7 +116,7 @@ function [] = generate_static_drone_static_wind(SEED, num_of_trajectories, m, mi
     if ~exist(folder_name, 'dir')
            mkdir(folder_name)
     end
-    sample_arrays = lhsdesign(num_of_trajectories, 3);
+    sample_arrays = lhsdesign(num_of_trajectories, 7);
    
     for i=1:num_of_trajectories
         arrays = sample_arrays(i,:)' * ones(1,m)*2 -1;
@@ -373,7 +388,7 @@ function[pitch,roll,yaw]= interpolate_until_small(pitch, roll, yaw, max_dist)
 end
 
 function [random_walk] = create_random_walk_zero(n_linear_points, n_nonlinear_points, range, minimum)
-    random_walk = create_random_walk(n_nonlinear_points, range,minimum)
+    random_walk = create_random_walk(n_nonlinear_points, range,minimum);
 
     linear_increase = linspace(0,random_walk(1),n_linear_points/2);
 
@@ -383,10 +398,14 @@ function [random_walk] = create_random_walk_zero(n_linear_points, n_nonlinear_po
 end
 
 function [random_walk] = create_random_walk(n_nonlinear_points, range, minimum)
-    random_walk = cumsum(randn(1,n_nonlinear_points));
+    %w = [0.1, 0.2,0.4,0.6,1,0.6,0.4,0.2,0.1];
+    %random_walk = conv(cumsum(randn(1,n_nonlinear_points)), w, 'same');
+    random_walk = smoothdata(cumsum(randn(1,n_nonlinear_points)));
+
     random_walk = random_walk - min(random_walk);
     random_walk = random_walk/max(random_walk)*range;
     random_walk = random_walk + minimum;
+
 end
 
 
