@@ -1,12 +1,13 @@
 import numpy as np
 from scipy.stats.qmc import LatinHypercube
+import pandas as pd
 
 
 
 
 class BaseGenerator:
     def __init__(self, min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
-                 seed=263481, sequence_len=1000, LHS_sequence_length = 1000, d=7):
+                 seed=263481, sequence_len=1000, LHS_sequence_length = 1000, d=7, frequency=None):
         self.seed = seed
         self.min_x = min_ax_1
         self.max_x = max_ax_1
@@ -30,6 +31,8 @@ class BaseGenerator:
 
         self.LHS_Sequence = self.sampler.random(LHS_sequence_length)
         self.idx = 0
+
+        self.frequency = frequency
 
     def next_numbers(self):
         seq_len = len(self.LHS_Sequence)
@@ -58,8 +61,22 @@ class BaseGenerator:
 
         return a, b, c, delta, phi, int(n), int(m)
 
-    def generate_next(self, sequence_len=None, save_as=''):
+    def generate_next(self, trajectory, sequence_len=None, save_as=''):
         raise NotImplementedError
+
+    def add_time(self,trajectory):
+        """
+        Add random time dimension
+        :param trajectory:  MxN trajectory
+        :return: M+1xN trajecotry
+        """
+        assert self.frequency is not None, "Can't add time without a specified average frequency"
+        seq = np.random.random(trajectory.shape[0]) * self.frequency
+
+        # start at 0
+        seq[0] = 0
+        seq = np.cumsum(seq)
+        return np.hstack((trajectory,np.expand_dims(seq,axis=1)))
 
     def normalize_to_vals(self,x, min_val=-20, max_val=20):
         x -= x.min()
@@ -67,6 +84,17 @@ class BaseGenerator:
         x *= max_val - min_val
         x += min_val
         return x
+
+    def save(self, table, name):
+        if not name.endswith('.csv'):
+            name += '.csv'
+        if table.shape[1] == 3:
+            df = pd.DataFrame(table, columns=[self.x,self.y,self.z])
+        elif table.shape[1] == 4:
+            df = pd.DataFrame(table, columns=[self.x,self.y,self.z,'elapsed_time'])
+
+        df.to_csv(name)
+
 
 class DynamicTrajectory(BaseGenerator):
     def __init__(self, min_ax_1, max_ax_1, min_ax_2, max_ax_2, min_ax_3, max_ax_3, ax_1='x', ax_2='y', ax_3='z',
@@ -103,8 +131,11 @@ class DynamicTrajectory(BaseGenerator):
 
         xyz_as_table = np.concatenate((np.expand_dims(x, 1), np.expand_dims(y, 1), np.expand_dims(z, 1)),
                                       axis=1)
+        if self.frequency is not None:
+            xyz_as_table = self.add_time(xyz_as_table)
+
         if save_as != '':
-            np.savetxt(save_as+'_' + str(self.idx) + '.csv', xyz_as_table, delimiter=',')
+            self.save(xyz_as_table, save_as+'_' + str(self.idx))
 
         return xyz_as_table
 
@@ -140,8 +171,10 @@ class StaticTrajectory(BaseGenerator):
 
         xyz_as_table = np.concatenate((np.expand_dims(x, 1), np.expand_dims(y, 1), np.expand_dims(z, 1)),
                                       axis=1)
+        if self.frequency is not None:
+            xyz_as_table = self.add_time(xyz_as_table)
         if save_as != '':
-            np.savetxt(save_as+'_' + str(self.idx) + '.csv', xyz_as_table, delimiter=',')
+            self.save(xyz_as_table, save_as+'_' + str(self.idx))
 
         return xyz_as_table
 
