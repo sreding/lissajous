@@ -1,7 +1,7 @@
 clear all
 %% Parameter Definition
-% Number of points per trajectory:
-m = 300;
+% (initial) Number of points per trajectory:
+m = 500;
 % in range [-pi*m_range, pi*m_range]
 m_range = 1;
 
@@ -25,9 +25,24 @@ num_of_trajectories = 10;
 
 %generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
-generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+%generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 %generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 %enerate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+
+torque_min = -4;
+torque_max = 4;
+max_change_torque=2;
+
+force_min = -30;
+force_max = 30;
+max_change_force = 10;
+interval=0.05;
+
+% (soft) cutoff time
+cutoff_time = 10;
+
+%generate_dynamic_force_torque(SEED, num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, max_fixed_waypoints,interval);
+generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, cutoff_time,interval);
 
 function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
@@ -117,67 +132,7 @@ function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, m
     end
 end
 
-function [] = generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-
-    rng(SEED);
-    folder_name = 'static_drone_static_wind';
-    if ~exist(folder_name, 'dir')
-           mkdir(folder_name)
-    end
-    sample_arrays = lhsdesign(num_of_trajectories, 7);
-   
-    for i=1:num_of_trajectories
-        arrays = sample_arrays(i,:)' * ones(1,m)*2 -1;
-
-        roll = arrays(1,:)'*(max_roll-min_roll) - min_roll;
-        pitch = arrays(2,:)'*(max_pitch-min_pitch) - min_pitch;
-        yaw = arrays(3,:)'*(max_yaw-min_yaw) - min_yaw;
-        difference = summed_differences(roll, pitch, yaw);
-
-        fprintf('Max distance between points: %f\n', max(difference))
-        fprintf('Min distance between points: %f\n', min(difference))
-
-        n_nonlinear_points = size(roll,1);
-
-        [roll, pitch, yaw] = connect_to_zero(roll, pitch, yaw, max_dist);
-        fprintf('Final max distance between points (with trajectory to 0): %f\n', max(difference))
-
-        n_linear_points = size(roll,1)-n_nonlinear_points;
-
-        random_walk = static_wind(n_linear_points, n_nonlinear_points, 50,50);
-
-        figure(1)
-        plot(random_walk)
-        stride = ceil(size(roll)/max_fixed_waypoints);
-
-        strided_roll = roll;
-        strided_pitch = pitch;
-        strided_yaw = yaw;
-
-        idx = setdiff(1:size(roll),1:stride:size(roll));
-        strided_roll(idx) = 0;
-        strided_pitch(idx) = 0;
-        strided_yaw(idx) = 0;
-
-        fprintf('Number of elements in second trajectory: %f\n', nnz(strided_roll))
-
-        figure(2)
-        scatter3(roll, pitch, yaw, 'b', 'filled')
-        hold on
-        scatter3(strided_roll, strided_pitch, strided_yaw, 'g', 'filled')
-        hold off
-        grid on
-        legend('Normal', 'Subsampled')
-
-        id = string(round(rand*1000));
-        filename = strcat('attitude_inputs_lissajous_',string(i),'_',id,'.csv');
-        output_as_robot_csv(roll, pitch, yaw, fullfile(folder_name,filename));
-        filename = strcat('attitude_inputs_lissajous_',string(i),'_',id,'_subsampled.csv');
-        output_as_robot_csv(strided_roll, strided_pitch, strided_yaw, fullfile(folder_name,filename));
-        writematrix(random_walk',fullfile(folder_name, strcat('wind_',string(i),'_',id,'.csv')));
-        fprintf('Saved with file id: '+id+'\n')
-    end
-end
+ 
 
 
 function [] = generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
@@ -304,6 +259,196 @@ function [] = generate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, 
     end
 end
 
+%% Force-Torque generation
+
+function [] = generate_dynamic_force_torque(SEED, num_of_trajectories, m, min_torque_x, max_torque_x, min_torque_y, max_torque_y, min_torque_z, max_torque_z, min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z, m_range, max_dist_torque, max_dist_force,max_fixed_waypoints,interval);
+
+    rng(SEED);
+    folder_name = 'dynamic_force_torque';
+    if ~exist(folder_name, 'dir')
+           mkdir(folder_name);
+    end
+    sample_arrays = lhsdesign(num_of_trajectories, 14);
+
+    for i=1:num_of_trajectories
+        [torque_x, torque_y, torque_z] = generate_angles(m, min_torque_x, max_torque_x, min_torque_y, max_torque_y, min_torque_z, max_torque_z, m_range, sample_arrays(i,:));
+        [torque_x, torque_y, torque_z] = interpolate_until_small(torque_x, torque_y, torque_z, max_dist_torque);
+
+        [force_x, force_y, force_z] = generate_angles(m, min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z, m_range, sample_arrays(i,7:end));
+
+        [force_x, force_y, force_z] = interpolate_until_small(force_x, force_y, force_z, max_dist_force);
+        
+
+        % Ensure both have same length
+        max_len = max(length(torque_x),length(force_x));
+        [torque_x, torque_y, torque_z] = interpolate_trajectory(torque_x, torque_y, torque_z, max_len);
+        [force_x, force_y, force_z] = interpolate_trajectory(force_x, force_y, force_z, max_len);
+
+
+        [torque_x, torque_y, torque_z] = pivot_to_smallest(torque_x, torque_y, torque_z);
+        [force_x, force_y, force_z] = pivot_to_smallest(force_x, force_y, force_z);
+
+        
+
+        [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(0, force_x(1),10)),transpose(linspace(0, force_y(1),10)),transpose(linspace(0, force_z(1),10)),max_dist_force);
+        [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(0, torque_x(1),10)),transpose(linspace(0, torque_y(1),10)),transpose(linspace(0, torque_z(1),10)),max_dist_torque);
+
+        len_zero_traj = max(length(fx_to_zero), length(tx_to_zero));
+
+        [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(0, force_x(1),len_zero_traj)),transpose(linspace(0, force_y(1),len_zero_traj)),transpose(linspace(0, force_z(1),len_zero_traj)),max_dist_force);
+        [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(0, torque_x(1),len_zero_traj)),transpose(linspace(0, torque_y(1),len_zero_traj)),transpose(linspace(0, torque_z(1),len_zero_traj)),max_dist_torque);
+
+        size(tx_to_zero)
+        size(torque_x)
+
+        torque_x = [tx_to_zero;torque_x;flip(tx_to_zero)];
+        torque_y = [ty_to_zero;torque_y;flip(ty_to_zero)];
+        torque_z = [tz_to_zero;torque_z;flip(tz_to_zero)];
+
+        force_x = [fx_to_zero;force_x;flip(fx_to_zero)];
+        force_y = [fy_to_zero;force_y;flip(fy_to_zero)];
+        force_z = [fz_to_zero;force_z;flip(fz_to_zero)];
+
+
+%        fprintf('Final max distance between points (with trajectory to 0): %f\n', max(difference))
+        figure(1)
+
+        scatter3(force_x, force_y, force_z, 'b', 'filled')
+        hold on
+        scatter3(torque_x, torque_y, torque_z, 'g', 'filled')
+        hold off
+        grid on
+       
+        filename = strcat('dynamic_', string(i), '.csv');
+
+        time = ones(size(torque_z)) * interval;
+        time(1) = 0;
+        time = cumsum(time);
+
+        output_force_torque_csv(force_x,force_y,force_z,torque_x,torque_y,torque_z, time,fullfile(folder_name, filename))
+
+    end
+end
+
+function [] = generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, min_torque_x, max_torque_x, min_torque_y, max_torque_y, min_torque_z, max_torque_z, min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z, m_range, max_dist_torque, max_dist_force,timecut,interval);
+    timecut = timecut*60;
+
+    rng(SEED);
+    folder_name = 'dynamic_force_torque';
+    if ~exist(folder_name, 'dir')
+           mkdir(folder_name);
+    end
+    sample_arrays = lhsdesign(num_of_trajectories, 14);
+
+    [fx,fy,fz,tx,ty,tz,t] = deal([]);
+
+    for i=1:num_of_trajectories
+        [torque_x, torque_y, torque_z] = generate_angles(m, min_torque_x, max_torque_x, min_torque_y, max_torque_y, min_torque_z, max_torque_z, m_range, sample_arrays(i,:));
+        [torque_x, torque_y, torque_z] = interpolate_until_small(torque_x, torque_y, torque_z, max_dist_torque);
+
+        [force_x, force_y, force_z] = generate_angles(m, min_force_x, max_force_x, min_force_y, max_force_y, min_force_z, max_force_z, m_range, sample_arrays(i,7:end));
+
+        [force_x, force_y, force_z] = interpolate_until_small(force_x, force_y, force_z, max_dist_force);
+        
+
+        % Ensure both have same length
+        max_len = max(length(torque_x),length(force_x));
+        [torque_x, torque_y, torque_z] = interpolate_trajectory(torque_x, torque_y, torque_z, max_len);
+        [force_x, force_y, force_z] = interpolate_trajectory(force_x, force_y, force_z, max_len);
+
+
+        [torque_x, torque_y, torque_z] = pivot_to_smallest(torque_x, torque_y, torque_z);
+        [force_x, force_y, force_z] = pivot_to_smallest(force_x, force_y, force_z);
+
+        [old_fx,old_fy, old_fz, old_tx, old_ty, old_tz] = deal(0);
+
+        if  ~isempty(fx)
+            old_fx = fx(end);
+            old_fy = fy(end); 
+            old_fz = fz(end); 
+            old_tx = tx(end);
+            old_ty = ty(end);
+            old_tz = tz(end);
+        end
+
+
+
+        [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(old_fx, force_x(1),10)),transpose(linspace(old_fy, force_y(1),10)),transpose(linspace(old_fz, force_z(1),10)),max_dist_force);
+        [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(old_tx, torque_x(1),10)),transpose(linspace(old_ty, torque_y(1),10)),transpose(linspace(old_tz, torque_z(1),10)),max_dist_torque);
+
+        len_zero_traj = max(length(fx_to_zero), length(tx_to_zero));
+
+        [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(old_fx, force_x(1),len_zero_traj)),transpose(linspace(old_fy, force_y(1),len_zero_traj)),transpose(linspace(old_fz, force_z(1),len_zero_traj)),max_dist_force);
+        [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(old_tx, torque_x(1),len_zero_traj)),transpose(linspace(old_ty, torque_y(1),len_zero_traj)),transpose(linspace(old_tz, torque_z(1),len_zero_traj)),max_dist_torque);
+
+
+        torque_x = [tx_to_zero;torque_x];
+        torque_y = [ty_to_zero;torque_y];
+        torque_z = [tz_to_zero;torque_z];
+
+        force_x = [fx_to_zero;force_x];
+        force_y = [fy_to_zero;force_y];
+        force_z = [fz_to_zero;force_z];
+
+
+        figure(1)
+
+        scatter3(force_x, force_y, force_z, 'b', 'filled')
+        hold on
+        scatter3(torque_x, torque_y, torque_z, 'g', 'filled')
+        hold off
+        grid on
+       
+
+        time = ones(size(torque_z)) * interval;
+        time(1) = 0;
+        time = cumsum(time);
+
+        if ~isempty(t)
+            time = t(end)+time;
+        end
+
+        fx = [fx;force_x];
+        fy = [fy;force_y];
+        fz = [fz;force_z];
+
+        tx = [tx;torque_x];
+        ty = [ty;torque_y];
+        tz = [tz;torque_z];
+        t = [t;time];
+        if t(end) > time
+            break
+        end
+    end
+    [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(0, fx(end),10)),transpose(linspace(0, fy(end),10)),transpose(linspace(0, fz(end),10)),max_dist_force);
+    [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(0, tx(end),10)),transpose(linspace(0, ty(end),10)),transpose(linspace(0, tz(end),10)),max_dist_torque);
+
+    len_zero_traj = max(length(fx_to_zero), length(tx_to_zero));
+    len_zero_traj
+    [fx_to_zero, fy_to_zero, fz_to_zero] = interpolate_until_small(transpose(linspace(fx(end), 0,len_zero_traj)),transpose(linspace(fy(end), 0,len_zero_traj)),transpose(linspace(fz(end),0,len_zero_traj)),max_dist_force);
+    [tx_to_zero, ty_to_zero, tz_to_zero] = interpolate_until_small(transpose(linspace(tx(end), 0,len_zero_traj)),transpose(linspace(ty(end), 0,len_zero_traj)),transpose(linspace(tz(end),0,len_zero_traj)),max_dist_torque);
+
+    fx = [fx;fx_to_zero];
+    fy = [fy;fy_to_zero];
+    fz = [fz;fz_to_zero];
+
+    tx = [tx;tx_to_zero];
+    ty = [ty;ty_to_zero];
+    tz = [tz;tz_to_zero];
+
+    time = ones(size(fx_to_zero)) * interval;
+    time(1) = 0;
+    time = cumsum(time);
+    time = t(end)+time;
+    t = [t;time];
+
+    filename = strcat('dynamic_',int2str(round(timecut/60)),'.csv');
+    output_force_torque_csv(fx,fy,fz,tx,ty,tz, t,fullfile(folder_name, filename))
+
+
+end
+
+
 %% Helper Functions
 function [roll, pitch, yaw] = generate_angles(m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, sample_arrays)    
     % Adjust range
@@ -347,6 +492,20 @@ function [sum_differece] = summed_differences(roll, pitch, yaw)
     sum_differece = abs(diff(roll))+ abs(diff(pitch))+abs(diff(yaw));
 end
 
+function[] = output_force_torque_csv(fx,fy,fz,tx,ty,tz,time,filename)
+colnames = {'index','fx','fy','fz','tx','ty','tz','time'};
+
+index = (0:length(fx)-1)';
+
+output = [index fx fy fz tx ty tz time+2];
+output = [zeros(1,8);output];
+
+index = compose("%d",((0:length(fx))'));
+table = array2table(output,'RowNames',index,'VariableNames',colnames);
+writetable(table,filename);
+
+end
+
 function[] = output_as_robot_csv(roll, pitch, yaw, filename)
     pitch=90-pitch; roll=90-roll;
     m = size(roll);
@@ -362,20 +521,27 @@ function[] = output_as_robot_csv(roll, pitch, yaw, filename)
     writematrix(output,filename)
 end
 
+function[x, y, z] = pivot_to_smallest(x,y,z)
+    % returns xyz such that closest element is at start
+   distance_to_zero = sqrt(x.^2+y.^2+z.^2);
+   [~, idx] = min(distance_to_zero);
+
+   x = [x(idx:size(x)); x(1:idx-1)];
+   y = [y(idx:size(y)); y(1:idx-1)];
+   z = [z(idx:size(z)); z(1:idx-1)];
+
+end
+
 function[pitch, roll, yaw] = connect_to_zero(pitch, roll, yaw, max_dist)
     % (for closed loops: connect points to the starting point (zero))
-   distance_to_zero = sqrt(pitch.^2+roll.^2+yaw.^2);
-   [~, idx] = min(distance_to_zero);
+
+    [pitch, roll, yaw] = pivot_to_smallest(pitch, roll, yaw);
    
-   pitch = [pitch(idx:size(pitch)); pitch(1:idx-1)];
-   roll = [roll(idx:size(roll)); roll(1:idx-1)];
-   yaw = [yaw(idx:size(yaw)); yaw(1:idx-1)];
+    [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_until_small(transpose(linspace(0, pitch(1),10)),transpose(linspace(0, roll(1),10)),transpose(linspace(0, yaw(1),10)),max_dist);
    
-   [pitch_to_zero, roll_to_zero, yaw_to_zero] = interpolate_until_small(transpose(linspace(0, pitch(1),10)),transpose(linspace(0, roll(1),10)),transpose(linspace(0, yaw(1),10)),max_dist);
-   
-   pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
-   roll = [roll_to_zero; roll; flip(roll_to_zero)];  
-   yaw = [yaw_to_zero; yaw; flip(yaw_to_zero)];
+    pitch = [pitch_to_zero;pitch; flip(pitch_to_zero)];
+    roll = [roll_to_zero; roll; flip(roll_to_zero)];
+    yaw = [yaw_to_zero; yaw; flip(yaw_to_zero)];
 end
 
 function[x,y,z] = connect_x_to_y(x,y, max_dist)
