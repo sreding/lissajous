@@ -13,36 +13,48 @@ max_pitch = 15;
 min_yaw = -5;
 max_yaw = 5;
 
-% Sum between points:
+% Difference of sums between points:
 max_dist = 0.5;
 max_fixed_waypoints = 50;
 SEED = 43632;
 
 % Number of trajectories to be generated
-num_of_trajectories = 10;
+num_of_trajectories = 100;
 
 
 
 %generate_static_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
-%generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-%generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
-%enerate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+generate_dynamic_drone_static_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+generate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
+generate_dynamic_force_torque(SEED, num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, max_fixed_waypoints,interval);
 
-torque_min = -4;
-torque_max = 4;
-max_change_torque=2;
+%torque_min = -3.9;
+%torque_max = 3.9;
+%max_change_torque=2;
 
-force_min = -30;
-force_max = 30;
-max_change_force = 10;
-interval=0.05;
+%force_min = -28;
+%force_max = 28;
+%max_change_force = 10;
+%interval=0.05;
 
 % (soft) cutoff time
-cutoff_time = 10;
+%cutoff_time = 10;
 
-%generate_dynamic_force_torque(SEED, num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, max_fixed_waypoints,interval);
-generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, cutoff_time,interval);
+%generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, cutoff_time,interval);
+%generate_long_static_force_torque(SEED, force_min, force_max, torque_min, torque_max, 2, 2,cutoff_time)
+
+%cutoff_time = 20;
+%SEED = 48734;
+%generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, cutoff_time,interval);
+%generate_long_static_force_torque(SEED, force_min, force_max, torque_min, torque_max, 2, 2,cutoff_time)
+
+%cutoff_time = 40;
+%SEED = 4875345;
+%generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, torque_min, torque_max, torque_min, torque_max, torque_min, torque_max, force_min, force_max, force_min, force_max, force_min, force_max, m_range, max_change_torque, max_change_force, cutoff_time,interval);
+%generate_long_static_force_torque(SEED, force_min, force_max, torque_min, torque_max, 2, 2,cutoff_time)
+
 
 function [] = generate_static_drone_dynamic_wind(SEED, num_of_trajectories, m, min_roll, max_roll, min_pitch, max_pitch, min_yaw, max_yaw, m_range, max_dist,max_fixed_waypoints)
 
@@ -258,6 +270,10 @@ function [] = generate_dynamic_drone_dynamic_wind(SEED, num_of_trajectories, m, 
         fprintf('Saved with file id: '+id+'\n')
     end
 end
+%% Wind/Trajectory generation components
+
+%function[x,y,z] = generate_static_trajectory(SEED, )
+
 
 %% Force-Torque generation
 
@@ -416,7 +432,7 @@ function [] = generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, mi
         ty = [ty;torque_y];
         tz = [tz;torque_z];
         t = [t;time];
-        if t(end) > time
+        if t(end) > timecut
             break
         end
     end
@@ -446,6 +462,43 @@ function [] = generate_long_dynamic_force_torque(SEED,num_of_trajectories, m, mi
     output_force_torque_csv(fx,fy,fz,tx,ty,tz, t,fullfile(folder_name, filename))
 
 
+end
+
+function [] = generate_long_static_force_torque(SEED, min_f, max_f, min_t, max_t, static_time,move_time,cutoff)
+    rng(SEED)
+
+    folder_name = 'static_force_torque';
+    if ~exist(folder_name, 'dir')
+           mkdir(folder_name);
+    end
+
+    runtime = cutoff*60;
+    N = floor(runtime/(static_time+move_time));
+
+    pts = repelem(lhsdesign(N,6),2,1);
+    pts(:,1:3) = pts(:,1:3)*(min_f-max_f)-min_f;
+    pts(:,4:6) = pts(:,4:6)*(min_t-max_t)-min_t;
+
+    scatter3(pts(:,1),pts(:,2),pts(:,3))
+    time = repmat([move_time;static_time],N,1);
+    time = cumsum(time);
+    
+    index = (0:length(time)-1)';
+    
+    % Add 2 seconds of zeros
+    output = [index pts time+2];
+    output = [zeros(1,8);output];
+    output = [zeros(1,8);output];
+    output(2,8) = 2;
+
+    colnames = {'index','fx','fy','fz','tx','ty','tz','time'};
+
+    index = compose("%d",((0:length(output)-1)'));
+
+    table = array2table(output,'RowNames',index,'VariableNames',colnames);
+    filename = strcat('static_',int2str(round(cutoff)),'.csv');
+    filename = fullfile(folder_name,filename);
+    writetable(table,filename);
 end
 
 
